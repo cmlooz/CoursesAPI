@@ -1,0 +1,142 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgresql-server-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: local-storage
+  local:
+    path: /mnt/disks/ssd1
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - node1
+#---
+#apiVersion: v1
+#kind: PersistentVolume
+#metadata:
+#  name: postgresql-server-pv
+#spec:
+#  capacity:
+#    storage: 1Gi
+#  accessModes:
+#    - ReadWriteOnce
+#  persistentVolumeReclaimPolicy: Recycle
+#  storageClassName: standard
+#  volumeMode: Filesystem
+#  volumeType: NFS
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-server-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  #storageClassName: local-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-server
+spec:
+  selector:
+    app: postgresql-server
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-server
+spec:
+  selector:
+    matchLabels:
+      app: postgresql-server
+  template:
+    metadata:
+      labels:
+        app: postgresql-server
+    spec:
+      containers:
+        - name: postgresql-server
+          image: postgres:latest
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "HDLCrin8*"
+            - name: POSTGRES_DATABASE
+              value: "Courses"
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: postgresql-server-pvolume
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgresql-server-pvolume
+          persistentVolumeClaim:
+            claimName: postgresql-server-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: courses-api
+spec:
+  selector:
+    app: courses-api
+  ports:
+    - protocol: TCP
+      port: 8090
+      targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: courses-api
+spec:
+  selector:
+    matchLabels:
+      app: courses-api
+  template:
+    metadata:
+      labels:
+        app: courses-api
+    spec:
+      containers:
+        - name: courses-api
+          image: jcortizs/nodejs_courses_api
+          env:
+            - name: POSTGRES_HOST
+              value: "postgresql-server"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USERNAME
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              value: "HDLCrin8*"
+            - name: postgresql-server
+              value: "postgresql-server"
+          ports:
+            - containerPort: 80

@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-initdb-config
+data:
+  initdb.sh: |
+    #!/bin/bash
+    set -e
+
+    # Create the database user
+    psql -v ON_ERROR_STOP=1 --username "postgres" <<-EOSQL
+        CREATE DATABASE Courses;
+        GRANT ALL PRIVILEGES ON DATABASE Courses TO postgres;
+    EOSQL
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgresql-initdb-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgresql-initdb
+          image: postgres:12
+          env:
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              value: "HDLCrin8*"
+            - name: POSTGRES_DB
+              value: "Courses"
+          command:
+            ["/bin/bash", "-c", "/opt/bitnami/postgresql/scripts/initdb.sh"]
+          volumeMounts:
+            - name: initdb-scripts
+              mountPath: /opt/bitnami/postgresql/scripts/
+      restartPolicy: Never
+      volumes:
+        - name: initdb-scripts
+          configMap:
+            name: postgresql-initdb-config
