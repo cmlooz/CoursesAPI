@@ -89,10 +89,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: courses-api
+  name: nodejs-courses-api
 spec:
   selector:
-    app: courses-api
+    app: nodejs-courses-api
   ports:
     - protocol: TCP
       port: 8090
@@ -102,18 +102,18 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: courses-api
+  name: nodejs-courses-api
 spec:
   selector:
     matchLabels:
-      app: courses-api
+      app: nodejs-courses-api
   template:
     metadata:
       labels:
-        app: courses-api
+        app: nodejs-courses-api
     spec:
       containers:
-        - name: courses-api
+        - name: nodejs-courses-api
           image: jcortizs/nodejs_courses_api
           env:
             - name: POSTGRES_HOST

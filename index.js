@@ -11,8 +11,8 @@ import CoursesResponse from "./Wrappers/CoursesResponse.js";
 
 const client = new Client({
   user: "postgres",
-  host: "localhost",
-  //host: "postgresql-server",
+  //host: "localhost",
+  host: "postgresql-server",
   database: "courses_db",
   password: "HDLCrin8*",
   port: 5432,
@@ -60,8 +60,8 @@ client.query(
 //Creating the API
 const app = express();
 
-const port = 9080;
-//const port = 80;
+//const port = 9080;
+const port = 80;
 
 app.listen(port, () => {
   console.log("SERVER: http://localhost:" + port);
