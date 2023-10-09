@@ -1,51 +1,19 @@
-import express from "express";
+import express, { request, response } from "express";
 import pg from "pg";
 
 //Connecting to the database
 const { Client } = pg;
 
-const init_client = new Client({
-  user: "postgres",
-  host: "localhost",
-  //host: "postgresql-server",
-  password: "HDLCrin8*",
-  port: 5432,
-});
+import bodyParser from "body-parser";
 
-init_client.connect((err) => {
-  if (err) {
-    console.error("Connection error:", err.stack);
-  } else {
-    init_client.query("CREATE DATABASE Courses;", (err_, res_) => {
-      if (err_) {
-        console.error(err_);
-        return;
-      }
-      console.log("Database created");
-    });
-
-    init_client.end();
-
-    console.log("Initial Connected to PostgreSQL server");
-  }
-});
-
-/*
-await init_client.query("CREATE DATABASE Courses;", (err_, res_) => {
-  if (err_) {
-    console.error(err_);
-    return;
-  }
-  console.log("Database created");
-});
-
-await init_client.end();
-*/
+import CoursesRequest from "./Wrappers/CoursesRequest.js";
+import CoursesResponse from "./Wrappers/CoursesResponse.js";
 
 const client = new Client({
   user: "postgres",
+  //host: "localhost",
   host: "postgresql-server",
-  database: "Courses",
+  database: "courses_db",
   password: "HDLCrin8*",
   port: 5432,
 });
@@ -72,18 +40,18 @@ client.query(
       console.error(err_);
       return;
     }
-    console.log("Table Courses created");
+    console.log("Table courses created");
   }
 );
 
 client.query(
-  "CREATE TABLE IF NOT EXISTS classes (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, description VARCHAR(1500) NOT NULL, content TEXT NOT NULL, startdate TIMESTAMP NOT NULL, createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, createdby VARCHAR(50), ind_active SMALLINT DEFAULT 1 NOT NULL, modifiedon TIMESTAMP NULL, modifiedby VARCHAR(50) NULL, course_id INT NOT NULL, FOREIGN KEY (course_id) REFERENCES Courses (id));",
+  "CREATE TABLE IF NOT EXISTS classes (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, description VARCHAR(1500) NOT NULL, content TEXT NOT NULL, startdate TIMESTAMP NOT NULL, createdon TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, createdby VARCHAR(50), ind_active SMALLINT DEFAULT 1 NOT NULL, modifiedon TIMESTAMP NULL, modifiedby VARCHAR(50) NULL, course_id INT NOT NULL, FOREIGN KEY (course_id) REFERENCES courses (id));",
   (err_, res_) => {
     if (err_) {
       console.error(err_);
       return;
     }
-    console.log("Table Courses created");
+    console.log("Table classes created");
   }
 );
 
@@ -92,92 +60,136 @@ client.query(
 //Creating the API
 const app = express();
 
+//const port = 9080;
 const port = 80;
 
 app.listen(port, () => {
   console.log("SERVER: http://localhost:" + port);
 });
 
+//To JSON Handle
+app.use(bodyParser.json());
+
 //CRUD For Courses
 
 app.get("/api/Courses/GetAllCourses", (req, res) => {
-  client.query("SELECT * FROM Courses", (err_, res_) => {
+  client.query("SELECT * FROM courses", (err_, res_) => {
     if (err_) {
       console.error(err_);
       return;
     }
-    res.send(res_.rows);
+
+    var response = new CoursesResponse(res_.rows, "", null);
+    res.send(response);
   });
 });
 
 app.get("/api/Courses/GetCourse/:id", (req, res) => {
   const id = req.params.id;
 
-  client.query("SELECT * FROM Courses WHERE id = $1", [id], (err_, res_) => {
+  client.query("SELECT * FROM courses WHERE id = $1", [id], (err_, res_) => {
     if (err_) {
       console.error(err_);
       return;
     }
-    res.send(res_.rows);
+
+    var response = new CoursesResponse(res_.rows, "", null);
+    res.send(response);
   });
 });
 
-app.post("/api/Courses/PostCourse", (req, res) => {
-  const { name, description, startdate, enddate, user } = req.body;
+app.post("/api/Courses/PostCourse", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
+
+  console.log("req", req);
+
+  const { name, description, startdate, enddate, user } = JSON.parse(req.data);
 
   client.query(
-    "INSERT INTO Courses (name, description, startdate, enddate, createdby) VALUES ($1, $2, $3, $4, $5)",
+    "INSERT INTO courses (name, description, startdate, enddate, createdby) VALUES ($1, $2, $3, $4, $5)",
     [name, description, startdate, enddate, user],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
         return;
       }
-      res.send("Course created");
+      console.log("course created");
+
+      var response = new CoursesResponse({}, "course created", null);
+      res.send(response);
     }
   );
 });
 
-app.put("/api/Courses/PutCourse/:id", (req, res) => {
+app.put("/api/Courses/PutCourse/:id", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
+
+  console.log("req", req);
+
   const id = req.params.id;
-  const { name, description, startdate, enddate, ind_active, user } = req.body;
+
+  const { name, description, startdate, enddate, ind_active, user } =
+    JSON.parse(req.data);
 
   client.query(
-    "UPDATE Courses SET name = $1, description = $2, startdate = $3, enddate = $4, modifiedby = $5, modifiedon = CURRENT_TIMESTAMP, ind_active = $6 WHERE id = $7",
+    "UPDATE courses SET name = $1, description = $2, startdate = $3, enddate = $4, modifiedby = $5, modifiedon = CURRENT_TIMESTAMP, ind_active = $6 WHERE id = $7",
     [name, description, startdate, enddate, user, ind_active, id],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
         return;
       }
-      res.send("Course updated");
+
+      var response = new CoursesResponse({}, "course updated", null);
+      res.send(response);
     }
   );
 });
 
-app.delete("/api/Courses/DeleteCourse/:id", (req, res) => {
+app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
   const id = req.params.id;
-  const { user } = req.body;
+  const { user } = req.user;
 
   /*
-  client.query("DELETE FROM Courses WHERE id = $1", [id], (err_, res_) => {
+  client.query("DELETE FROM courses WHERE id = $1", [id], (err_, res_) => {
     if (err_) {
       console.error(err_);
       return;
     }
-    res.send("Course deleted");
+    res.send("course deleted");
   });
   */
   //Only inactivate
   client.query(
-    "UPDATE Courses SET modifiedby = $1, modifiedon = CURRENT_TIMESTAMP, ind_active = 0 WHERE id = $2",
+    "UPDATE courses SET modifiedby = $1, modifiedon = CURRENT_TIMESTAMP, ind_active = 0 WHERE id = $2",
     [user, id],
     (err_, res_) => {
       if (err) {
         console.error(err_);
         return;
       }
-      res.send("Course updated");
+
+      var response = new CoursesResponse({}, "course inactivated", null);
+      res.send(response);
     }
   );
 });
@@ -187,12 +199,14 @@ app.delete("/api/Courses/DeleteCourse/:id", (req, res) => {
 app.get("/api/Classes/GetClass/:id", (req, res) => {
   const id = req.params.id;
 
-  client.query("SELECT * FROM Classes WHERE id = $1", [id], (err_, res_) => {
+  client.query("SELECT * FROM classes WHERE id = $1", [id], (err_, res_) => {
     if (err_) {
       console.error(err_);
       return;
     }
-    res.send(res_.rows);
+
+    var response = new CoursesResponse(res_.rows, "", null);
+    res.send(response);
   });
 });
 
@@ -200,37 +214,61 @@ app.get("/api/Classes/GetClassesByCourse/:id", (req, res) => {
   const id = req.params.id;
 
   client.query(
-    "SELECT * FROM Classes WHERE course_id = $1 AND ind_active = 1",
+    "SELECT * FROM classes WHERE course_id = $1 AND ind_active = 1",
     [id],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
         return;
       }
-      res.send(res_.rows);
+
+      var response = new CoursesResponse(res_.rows, "", null);
+      res.send(response);
     }
   );
 });
 
-app.post("/api/Classes/PostClass", (req, res) => {
+app.post("/api/Classes/PostClass", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
+
+  console.log("req", req);
+
   const { name, description, content, startdate, createdby, course_id } =
-    req.body;
+    JSON.parse(req.data);
 
   client.query(
-    "INSERT INTO Classes (name, description, content, startdate, createdby, course_id) VALUES ($1, $2, $3, $4, $5, $6)",
+    "INSERT INTO classes (name, description, content, startdate, createdby, course_id) VALUES ($1, $2, $3, $4, $5, $6)",
     [name, description, content, startdate, createdby, course_id],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
         return;
       }
-      res.send("Class added");
+      const response = new CoursesResponse({}, "class created", null);
+      res.send(response);
     }
   );
 });
 
-app.put("/api/Classes/PutClass/:id", (req, res) => {
+app.put("/api/Classes/PutClass/:id", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
+
+  console.log("req", req);
+
   const id = req.params.id;
+
   const {
     name,
     description,
@@ -239,10 +277,10 @@ app.put("/api/Classes/PutClass/:id", (req, res) => {
     modifiedby,
     course_id,
     ind_active,
-  } = req.body;
+  } = JSON.parse(req.data);
 
   client.query(
-    "UPDATE Classes SET name = $1, description = $2, content = $3, startdate = $4, modifiedby = $5, course_id = $6, ind_active = $7, modifiedon = CURRENT_TIMESTAMP WHERE id = $8",
+    "UPDATE classes SET name = $1, description = $2, content = $3, startdate = $4, modifiedby = $5, course_id = $6, ind_active = $7, modifiedon = CURRENT_TIMESTAMP WHERE id = $8",
     [
       name,
       description,
@@ -258,34 +296,46 @@ app.put("/api/Classes/PutClass/:id", (req, res) => {
         console.error(err_);
         return;
       }
-      res.send("Class updated");
+
+      var response = new CoursesResponse({}, "class updated", null);
+      res.send(response);
     }
   );
 });
 
-app.delete("/api/DeleteClass/:id", (req, res) => {
+app.delete("/api/DeleteClass/:id", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
+
   const id = req.params.id;
-  const { user } = req.body;
+
+  const { user } = req.user;
 
   /*
-  client.query("DELETE FROM Classes WHERE id = $1", [id], (err_, res_) => {
+  client.query("DELETE FROM classes WHERE id = $1", [id], (err_, res_) => {
     if (err_) {
       console.error(err_);
       return;
     }
-    res.send("Class deleted");
+    res.send("class deleted");
   });
   */
   //Only inactivate
   client.query(
-    "UPDATE Classes SET modifiedby = $1, modifiedon = CURRENT_TIMESTAMP, ind_active = 0 WHERE id = $2",
+    "UPDATE classes SET modifiedby = $1, modifiedon = CURRENT_TIMESTAMP, ind_active = 0 WHERE id = $2",
     [user, id],
     (err_, res_) => {
       if (err) {
         console.error(err_);
         return;
       }
-      res.send("Class updated");
+      var response = new CoursesResponse({}, "class inactivated", null);
+      res.send(response);
     }
   );
 });
