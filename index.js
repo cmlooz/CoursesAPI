@@ -60,7 +60,7 @@ client.query(
 //Creating the API
 const app = express();
 
-//const port = 9080;
+//const port = 8090;
 const port = 80;
 
 app.listen(port, () => {
@@ -166,6 +166,9 @@ app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
     request.body.parameters,
     request.body.user
   );
+
+  console.log("req", req);
+
   const id = req.params.id;
   const { user } = req.user;
 
