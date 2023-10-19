@@ -1,4 +1,5 @@
 import express, { request, response } from "express";
+import basicAuth from "express-basic-auth";
 import pg from "pg";
 
 //Connecting to the database
@@ -70,6 +71,14 @@ app.listen(port, () => {
 //To JSON Handle
 app.use(bodyParser.json());
 
+//For Auth
+app.use(
+  "/api",
+  basicAuth({
+    users: { admin: "Q2xhc3Nlcw==" },
+  })
+);
+
 //CRUD For Courses
 
 app.get("/api/Courses/GetAllCourses", (req, res) => {
@@ -138,7 +147,7 @@ app.put("/api/Courses/PutCourse/:id", (request, res) => {
 
   console.log("req", req);
 
-  const id = req.params.id;
+  const id = request.params.id;
 
   const { name, description, startdate, enddate, ind_active, user } =
     JSON.parse(req.data);
@@ -169,7 +178,7 @@ app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
 
   console.log("req", req);
 
-  const id = req.params.id;
+  const id = request.params.id;
   const { user } = req.user;
 
   /*
@@ -199,6 +208,20 @@ app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
 
 //CRUD For Classes
 
+app.get("/api/Classes/GetAllClasses", (req, res) => {
+  const id = req.params.id;
+
+  client.query("SELECT * FROM classes", (err_, res_) => {
+    if (err_) {
+      console.error(err_);
+      return;
+    }
+
+    var response = new CoursesResponse(res_.rows, "", null);
+    res.send(response);
+  });
+});
+
 app.get("/api/Classes/GetClass/:id", (req, res) => {
   const id = req.params.id;
 
@@ -213,8 +236,19 @@ app.get("/api/Classes/GetClass/:id", (req, res) => {
   });
 });
 
-app.get("/api/Classes/GetClassesByCourse/:id", (req, res) => {
-  const id = req.params.id;
+app.get("/api/Classes/GetClassesByCourse/:id", (request, res) => {
+  const req = new CoursesRequest(
+    request.body.process,
+    request.body.action,
+    request.body.data,
+    request.body.parameters,
+    request.body.user
+  );
+
+  //const id = JSON.parse(req.parameters).id;
+  const id = request.params.id;
+
+  console.log("req", req, id);
 
   client.query(
     "SELECT * FROM classes WHERE course_id = $1 AND ind_active = 1",
@@ -270,7 +304,7 @@ app.put("/api/Classes/PutClass/:id", (request, res) => {
 
   console.log("req", req);
 
-  const id = req.params.id;
+  const id = request.params.id;
 
   const {
     name,
@@ -315,7 +349,7 @@ app.delete("/api/DeleteClass/:id", (request, res) => {
     request.body.user
   );
 
-  const id = req.params.id;
+  const id = request.params.id;
 
   const { user } = req.user;
 
