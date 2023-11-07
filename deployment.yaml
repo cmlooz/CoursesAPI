@@ -9,23 +9,10 @@ spec:
     requests:
       storage: 1Gi
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgresql-server
-spec:
-  selector:
-    app: postgresql-server
-  ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
-  type: LoadBalancer
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgresql-server
+  name: postgresql-server-deployment
 spec:
   selector:
     matchLabels:
@@ -50,7 +37,7 @@ spec:
       #    ports:
       #      - containerPort: 5432
       containers:
-        - name: postgresql-server
+        - name: postgresql-server-container
           image: postgres:latest
           env:
             - name: POSTGRES_PASSWORD
@@ -76,7 +63,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgresql-server-replication
+  name: postgresql-server-service
 spec:
   selector:
     app: postgresql-server
@@ -85,24 +72,24 @@ spec:
       port: 5432
       targetPort: 5432
   type: LoadBalancer
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nodejs-courses-api
-spec:
-  selector:
-    app: nodejs-courses-api
-  ports:
-    - protocol: TCP
-      port: 8090
-      targetPort: 80
-  type: LoadBalancer
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: c
+#spec:
+#  selector:
+#    app: nodejs-courses-api
+#  ports:
+#    - protocol: TCP
+#      port: 8090
+#      targetPort: 80
+#  type: LoadBalancer
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nodejs-courses-api
+  name: nodejs-courses-api-deployment
 spec:
   selector:
     matchLabels:
@@ -130,3 +117,18 @@ spec:
               value: "courses_db"
           ports:
             - containerPort: 80
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejs-courses-api-service
+spec:
+  selector:
+    app: nodejs-courses-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30890
+  type: NodePort

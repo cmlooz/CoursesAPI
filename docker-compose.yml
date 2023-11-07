@@ -1,0 +1,26 @@
+version: '0.0.1'
+services:
+  postgresql-server:
+    image: postgres:latest
+    environment:
+      POSTGRES_PASSWORD: "HDLCrin8*"
+      POSTGRES_DB: "courses_db"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+
+  nodejs-courses-api:
+    image: jcortizs/nodejs_courses_api
+    build: .
+    environment:
+      POSTGRES_HOST: "postgresql-server"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USERNAME: "postgres"
+      POSTGRES_PASSWORD: "HDLCrin8*"
+      POSTGRES_DATABASE: "courses_db"
+    ports:
+      - "8090:80"
+
+volumes:
+  postgresql-data:

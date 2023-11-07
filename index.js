@@ -1,7 +1,6 @@
 import express, { request, response } from "express";
-import basicAuth from "express-basic-auth";
+//import basicAuth from "express-basic-auth";
 import pg from "pg";
-
 //Connecting to the database
 const { Client } = pg;
 
@@ -9,11 +8,12 @@ import bodyParser from "body-parser";
 
 import CoursesRequest from "./Wrappers/CoursesRequest.js";
 import CoursesResponse from "./Wrappers/CoursesResponse.js";
+import auth from "./auth.js";
 
 const client = new Client({
   user: "postgres",
-  //host: "localhost",
-  host: "postgresql-server",
+  host: "localhost",
+  //host: "postgresql-server-service",
   database: "courses_db",
   password: "HDLCrin8*",
   port: 5432,
@@ -61,8 +61,7 @@ client.query(
 //Creating the API
 const app = express();
 
-//const port = 8090;
-const port = 80;
+const port = 8090;
 
 app.listen(port, () => {
   console.log("SERVER: http://localhost:" + port);
@@ -72,23 +71,22 @@ app.listen(port, () => {
 app.use(bodyParser.json());
 
 //For Auth
-app.use(
-  "/api",
-  basicAuth({
-    users: { admin: "Q2xhc3Nlcw==" },
-  })
-);
+app.use(auth);
 
 //CRUD For Courses
 
 app.get("/api/Courses/GetAllCourses", (req, res) => {
+  console.log("req", req);
   client.query("SELECT * FROM courses", (err_, res_) => {
     if (err_) {
       console.error(err_);
-      return;
+      const errors = new CoursesResponse(null, "error", err_);
+      res.send(errors);
     }
 
-    var response = new CoursesResponse(res_.rows, "", null);
+    const response = new CoursesResponse(res_.rows, "", null);
+    console.log("res", response);
+
     res.send(response);
   });
 });
@@ -99,13 +97,25 @@ app.get("/api/Courses/GetCourse/:id", (req, res) => {
   client.query("SELECT * FROM courses WHERE id = $1", [id], (err_, res_) => {
     if (err_) {
       console.error(err_);
-      return;
+      const errors = new CoursesResponse(null, "error", err_);
+      res.send(errors);
     }
 
-    var response = new CoursesResponse(res_.rows, "", null);
+    const response = new CoursesResponse(res_.rows, "", null);
     res.send(response);
   });
 });
+
+/*
+--sample body request
+{
+  "process":"Courses",
+  "action":"PostCourse",
+  "data":"{ \"name\":\"_name\", \"description\":\"_description\", \"startdate\":\"_startdate\", \"enddate\":\"_enddate\", \"userid\":\"_userid\" }",
+  "parameters":"{}",
+  "userid":"_userid"
+}
+*/
 
 app.post("/api/Courses/PostCourse", (request, res) => {
   const req = new CoursesRequest(
@@ -113,55 +123,69 @@ app.post("/api/Courses/PostCourse", (request, res) => {
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   console.log("req", req);
 
-  const { name, description, startdate, enddate, user } = JSON.parse(req.data);
+  const { name, description, startdate, enddate, userid } = JSON.parse(
+    req.data
+  );
 
   client.query(
-    "INSERT INTO courses (name, description, startdate, enddate, createdby) VALUES ($1, $2, $3, $4, $5)",
-    [name, description, startdate, enddate, user],
+    "INSERT INTO courses (name, description, startdate, enddate, createdby, createdon) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)",
+    [name, description, startdate, enddate, userid],
     (err_, res_) => {
       if (err_) {
-        console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
       console.log("course created");
 
-      var response = new CoursesResponse({}, "course created", null);
+      const response = new CoursesResponse({}, "course created", null);
       res.send(response);
     }
   );
 });
 
+/*
+--sample body request
+{
+  "process":"Courses",
+  "action":"PutCourse",
+  "data":"{ \"name\":\"_name\", \"description\":\"_description\", \"startdate\":\"_startdate\", \"enddate\":\"_enddate\", \"userid\":\"_userid\" }",
+  "parameters":"{\"id\":_id}",
+  "userid":"_userid"
+}
+*/
 app.put("/api/Courses/PutCourse/:id", (request, res) => {
   const req = new CoursesRequest(
     request.body.process,
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   console.log("req", req);
 
   const id = request.params.id;
 
-  const { name, description, startdate, enddate, ind_active, user } =
-    JSON.parse(req.data);
+  const { name, description, startdate, enddate, userid } = JSON.parse(
+    req.data
+  );
 
   client.query(
-    "UPDATE courses SET name = $1, description = $2, startdate = $3, enddate = $4, modifiedby = $5, modifiedon = CURRENT_TIMESTAMP, ind_active = $6 WHERE id = $7",
-    [name, description, startdate, enddate, user, ind_active, id],
+    "UPDATE courses SET name = $1, description = $2, startdate = $3, enddate = $4, modifiedby = $5, modifiedon = CURRENT_TIMESTAMP, WHERE id = $6",
+    [name, description, startdate, enddate, userid, id],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
 
-      var response = new CoursesResponse({}, "course updated", null);
+      const response = new CoursesResponse({}, "course updated", null);
       res.send(response);
     }
   );
@@ -173,13 +197,13 @@ app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   console.log("req", req);
 
   const id = request.params.id;
-  const { user } = req.user;
+  const { userid } = req.userid;
 
   /*
   client.query("DELETE FROM courses WHERE id = $1", [id], (err_, res_) => {
@@ -193,14 +217,15 @@ app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
   //Only inactivate
   client.query(
     "UPDATE courses SET modifiedby = $1, modifiedon = CURRENT_TIMESTAMP, ind_active = 0 WHERE id = $2",
-    [user, id],
+    [userid, id],
     (err_, res_) => {
       if (err) {
         console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
 
-      var response = new CoursesResponse({}, "course inactivated", null);
+      const response = new CoursesResponse({}, "course inactivated", null);
       res.send(response);
     }
   );
@@ -214,10 +239,11 @@ app.get("/api/Classes/GetAllClasses", (req, res) => {
   client.query("SELECT * FROM classes", (err_, res_) => {
     if (err_) {
       console.error(err_);
-      return;
+      const errors = new CoursesResponse(null, "error", err_);
+      res.send(errors);
     }
 
-    var response = new CoursesResponse(res_.rows, "", null);
+    const response = new CoursesResponse(res_.rows, "", null);
     res.send(response);
   });
 });
@@ -228,10 +254,11 @@ app.get("/api/Classes/GetClass/:id", (req, res) => {
   client.query("SELECT * FROM classes WHERE id = $1", [id], (err_, res_) => {
     if (err_) {
       console.error(err_);
-      return;
+      const errors = new CoursesResponse(null, "error", err_);
+      res.send(errors);
     }
 
-    var response = new CoursesResponse(res_.rows, "", null);
+    const response = new CoursesResponse(res_.rows, "", null);
     res.send(response);
   });
 });
@@ -242,7 +269,7 @@ app.get("/api/Classes/GetClassesByCourse/:id", (request, res) => {
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   //const id = JSON.parse(req.parameters).id;
@@ -256,85 +283,95 @@ app.get("/api/Classes/GetClassesByCourse/:id", (request, res) => {
     (err_, res_) => {
       if (err_) {
         console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
 
-      var response = new CoursesResponse(res_.rows, "", null);
+      const response = new CoursesResponse(res_.rows, "", null);
       res.send(response);
     }
   );
 });
 
+/*
+--sample body request
+{
+  "process":"Classes",
+  "action":"PostClass",
+  "data":"{ \"name\":\"_name\", \"description\":\"_description\", \"content\":\"_content\", \"startdate\":\"_startdate\", \"userid\":\"_userid\", \"course_id\": _courseid }",
+  "parameters":"{}",
+  "userid":"_userid"
+}
+*/
 app.post("/api/Classes/PostClass", (request, res) => {
   const req = new CoursesRequest(
     request.body.process,
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   console.log("req", req);
 
-  const { name, description, content, startdate, createdby, course_id } =
+  const { name, description, content, startdate, userid, course_id } =
     JSON.parse(req.data);
 
   client.query(
-    "INSERT INTO classes (name, description, content, startdate, createdby, course_id) VALUES ($1, $2, $3, $4, $5, $6)",
-    [name, description, content, startdate, createdby, course_id],
+    "INSERT INTO classes (name, description, content, startdate, createdby, course_id, createdon) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)",
+    [name, description, content, startdate, userid, course_id],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
       const response = new CoursesResponse({}, "class created", null);
       res.send(response);
     }
   );
+  const response = new CoursesResponse({}, "class created", null);
+  res.send(response);
 });
 
+/*
+--sample body request
+{
+  "process":"Classes",
+  "action":"PutClass",
+  "data":"{ \"name\":\"_name\", \"description\":\"_description\", \"content\":\"_content\", \"startdate\":\"_startdate\", \"userid\":\"_userid\"}",
+  "parameters":"{\"id\":_id}",
+  "userid":"_userid"
+}
+*/
 app.put("/api/Classes/PutClass/:id", (request, res) => {
   const req = new CoursesRequest(
     request.body.process,
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   console.log("req", req);
 
   const id = request.params.id;
 
-  const {
-    name,
-    description,
-    content,
-    startdate,
-    modifiedby,
-    course_id,
-    ind_active,
-  } = JSON.parse(req.data);
+  const { name, description, content, startdate, userid } = JSON.parse(
+    req.data
+  );
 
   client.query(
-    "UPDATE classes SET name = $1, description = $2, content = $3, startdate = $4, modifiedby = $5, course_id = $6, ind_active = $7, modifiedon = CURRENT_TIMESTAMP WHERE id = $8",
-    [
-      name,
-      description,
-      content,
-      startdate,
-      modifiedby,
-      course_id,
-      ind_active,
-      id,
-    ],
+    "UPDATE classes SET name = $1, description = $2, content = $3, startdate = $4, modifiedby = $5, course_id = $6, modifiedon = CURRENT_TIMESTAMP WHERE id = $7",
+    [name, description, content, startdate, userid, course_id, id],
     (err_, res_) => {
       if (err_) {
         console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
 
-      var response = new CoursesResponse({}, "class updated", null);
+      const response = new CoursesResponse({}, "class updated", null);
       res.send(response);
     }
   );
@@ -346,12 +383,12 @@ app.delete("/api/DeleteClass/:id", (request, res) => {
     request.body.action,
     request.body.data,
     request.body.parameters,
-    request.body.user
+    request.body.userid
   );
 
   const id = request.params.id;
 
-  const { user } = req.user;
+  const { userid } = req.userid;
 
   /*
   client.query("DELETE FROM classes WHERE id = $1", [id], (err_, res_) => {
@@ -365,13 +402,14 @@ app.delete("/api/DeleteClass/:id", (request, res) => {
   //Only inactivate
   client.query(
     "UPDATE classes SET modifiedby = $1, modifiedon = CURRENT_TIMESTAMP, ind_active = 0 WHERE id = $2",
-    [user, id],
+    [userid, id],
     (err_, res_) => {
       if (err) {
         console.error(err_);
-        return;
+        const errors = new CoursesResponse(null, "error", err_);
+        res.send(errors);
       }
-      var response = new CoursesResponse({}, "class inactivated", null);
+      const response = new CoursesResponse({}, "class inactivated", null);
       res.send(response);
     }
   );
