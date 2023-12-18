@@ -10,6 +10,8 @@ import CoursesRequest from "./Wrappers/CoursesRequest.js";
 import CoursesResponse from "./Wrappers/CoursesResponse.js";
 import auth from "./auth.js";
 
+//import sendMessageToKafka from "./messager.js";
+
 const client = new Client({
   user: "postgres",
   host: "localhost",
@@ -21,11 +23,14 @@ const client = new Client({
 
 client.on("error", (err) => {
   console.error("Client error:", err.stack);
+  //sendMessageToKafka("client.onError", err.message);
 });
 
 client.connect((err) => {
   if (err) {
     console.error("Connection error:", err.stack);
+    //sendMessageToKafka("client.connectError", err.message);
+
     //client.end();
   } else {
     console.log("Connected to PostgreSQL server");
@@ -39,6 +44,7 @@ client.query(
   (err_, res_) => {
     if (err_) {
       console.error(err_);
+      //sendMessageToKafka("client.queryError", err_.message);
       return;
     }
     console.log("Table courses created");
@@ -50,6 +56,7 @@ client.query(
   (err_, res_) => {
     if (err_) {
       console.error(err_);
+      //sendMessageToKafka("client.queryError", err_.message);
       return;
     }
     console.log("Table classes created");
@@ -81,6 +88,7 @@ app.get("/api/Courses/GetAllCourses", (req, res) => {
     if (err_) {
       console.error(err_);
       const errors = new CoursesResponse(null, "error", err_);
+      //sendMessageToKafka("api/Courses/GetAllCourses", err_.message);
       res.send(errors);
     }
 
@@ -98,6 +106,7 @@ app.get("/api/Courses/GetCourse/:id", (req, res) => {
     if (err_) {
       console.error(err_);
       const errors = new CoursesResponse(null, "error", err_);
+      //sendMessageToKafka("api/Courses/GetCourse/" + id, err_.message);
       res.send(errors);
     }
 
@@ -138,6 +147,7 @@ app.post("/api/Courses/PostCourse", (request, res) => {
     (err_, res_) => {
       if (err_) {
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/PostCourse", err_.message);
         res.send(errors);
       }
       console.log("course created");
@@ -182,6 +192,7 @@ app.put("/api/Courses/PutCourse/:id", (request, res) => {
       if (err_) {
         console.error(err_);
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/PutCourse/" + id, err_.message);
         res.send(errors);
       }
 
@@ -222,6 +233,7 @@ app.delete("/api/Courses/DeleteCourse/:id", (request, res) => {
       if (err) {
         console.error(err_);
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/DeleteCourse/" + id, err_.message);
         res.send(errors);
       }
 
@@ -240,6 +252,7 @@ app.get("/api/Classes/GetAllClasses", (req, res) => {
     if (err_) {
       console.error(err_);
       const errors = new CoursesResponse(null, "error", err_);
+      //sendMessageToKafka("api/Courses/GetAllClases", err_.message);
       res.send(errors);
     }
 
@@ -255,6 +268,7 @@ app.get("/api/Classes/GetClass/:id", (req, res) => {
     if (err_) {
       console.error(err_);
       const errors = new CoursesResponse(null, "error", err_);
+      //sendMessageToKafka("api/Courses/GetClass/" + id, err_.message);
       res.send(errors);
     }
 
@@ -284,6 +298,7 @@ app.get("/api/Classes/GetClassesByCourse/:id", (request, res) => {
       if (err_) {
         console.error(err_);
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/GetClassesByCourse/" + id,err_.message);
         res.send(errors);
       }
 
@@ -324,6 +339,7 @@ app.post("/api/Classes/PostClass", (request, res) => {
       if (err_) {
         console.error(err_);
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/PostClass", err_.message);
         res.send(errors);
       }
       const response = new CoursesResponse({}, "class created", null);
@@ -368,6 +384,7 @@ app.put("/api/Classes/PutClass/:id", (request, res) => {
       if (err_) {
         console.error(err_);
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/PutClass/" + id, err_.message);
         res.send(errors);
       }
 
@@ -407,6 +424,7 @@ app.delete("/api/DeleteClass/:id", (request, res) => {
       if (err) {
         console.error(err_);
         const errors = new CoursesResponse(null, "error", err_);
+        //sendMessageToKafka("api/Courses/DeleteClass/" + id, err_.message);
         res.send(errors);
       }
       const response = new CoursesResponse({}, "class inactivated", null);

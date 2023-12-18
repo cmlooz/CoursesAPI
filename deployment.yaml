@@ -12,32 +12,19 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgresql-server-deployment
+  name: nodejs-courses-api-deployment
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: postgresql-server
+      app: nodejs-courses-api
   template:
     metadata:
       labels:
-        app: postgresql-server
+        app: nodejs-courses-api
     spec:
-      #initContainers:
-      #  - name: init-db
-      #    image: postgres:latest
-      #    env:
-      #      - name: POSTGRES_PASSWORD
-      #        value: "HDLCrin8*"
-      #    command:
-      #      [
-      #        "sh",
-      #        "-c",
-      #        "until pg_isready -h postgresql-server; do echo waiting for database; sleep 2; done; psql -h postgresql-server -U postgres -c 'CREATE DATABASE courses_db;'",
-      #      ]
-      #    ports:
-      #      - containerPort: 5432
       containers:
-        - name: postgresql-server-container
+        - name: postgresql-server-api-container
           image: postgres:latest
           env:
             - name: POSTGRES_PASSWORD
@@ -49,75 +36,25 @@ spec:
           volumeMounts:
             - name: postgresql-server-pvolume
               mountPath: /var/lib/postgresql/data
-            - name: command-script-volume
-              mountPath: /app/prepare_database.sh
-              subPath: prepare_database.sh
-      volumes:
-        - name: postgresql-server-pvolume
-          persistentVolumeClaim:
-            claimName: postgresql-server-pvc
-        - name: command-script-volume
-          configMap:
-            name: command-script
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgresql-server-service
-spec:
-  selector:
-    app: postgresql-server
-  ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
-  type: LoadBalancer
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: c
-#spec:
-#  selector:
-#    app: nodejs-courses-api
-#  ports:
-#    - protocol: TCP
-#      port: 8090
-#      targetPort: 80
-#  type: LoadBalancer
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nodejs-courses-api-deployment
-spec:
-  selector:
-    matchLabels:
-      app: nodejs-courses-api
-  template:
-    metadata:
-      labels:
-        app: nodejs-courses-api
-    spec:
-      containers:
-        - name: nodejs-courses-api
+        - name: nodejs-courses-api-container
           image: jcortizs/nodejs_courses_api
           env:
             - name: POSTGRES_HOST
-              value: "postgresql-server"
+              value: "localhost"
             - name: POSTGRES_PORT
               value: "5432"
             - name: POSTGRES_USERNAME
               value: "postgres"
             - name: POSTGRES_PASSWORD
               value: "HDLCrin8*"
-            - name: postgresql-server
-              value: "postgresql-server"
             - name: POSTGRES_DATABASE
               value: "courses_db"
           ports:
-            - containerPort: 80
-            - containerPort: 5432
+            - containerPort: 8090
+      volumes:
+        - name: postgresql-server-pvolume
+          persistentVolumeClaim:
+            claimName: postgresql-server-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -127,8 +64,8 @@ spec:
   selector:
     app: nodejs-courses-api
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-      nodePort: 30890
-  type: NodePort
+    - name: http
+      protocol: TCP
+      port: 8090
+      targetPort: 8090
+  type: LoadBalancer
